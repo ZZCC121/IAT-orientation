@@ -76,6 +76,9 @@
       negative: ["恶心", "丑陋", "糟糕", "肮脏", "可怕", "厌恶", "危险"],
       smoking: ["images/smoking1.jpg", "images/smoking2.jpg", "images/smoking3.jpg", "images/smoking4.jpg", "images/smoking5.jpg", "images/smoking6.jpg", "images/smoking7.jpg", "images/smoking8.jpg"]
     };
+    const preloadedImages = [];
+    stimuli.smoking.forEach(src => { let img = new Image(); img.src = src; preloadedImages.push(img); });
+
     const phases = [
       {name: "练习1", count: 22, left: "积极/吸烟", right: "消极", leftCats: ["positive", "smoking"], rightCats: ["negative"]},
       {name: "测试1", count: 72, left: "积极/吸烟", right: "消极", leftCats: ["positive", "smoking"], rightCats: ["negative"]},
@@ -168,8 +171,9 @@
 
     function handleResponse(key) {
       const stim=currentStimuli[trialIndex], category=getStimulusCategory(stim), phase=phases[phaseIndex];
-      const correct=phase[key+"Cats"].includes(category), rt=Math.round(performance.now()-startTime);
-      trialData.push({id:participantID, demo:demographicInfo, phase:phase.name, stimulus:stim, key, correct, rt, category});
+      const correct=phase[key+"Cats"].includes(category), rt=(performance.now()-startTime)/1000;
+      const date=new Date().toLocaleString();
+      trialData.push({id:participantID, demo:demographicInfo, phase:phase.name, stimulus:stim, key, correct, rt:rt.toFixed(7), date});
       const fb=document.getElementById("fb");
       if (!correct) { fb.textContent="X"; setTimeout(()=>{trialIndex++;showNextStimulus();},1500); }
       else { trialIndex++; showNextStimulus(); }
