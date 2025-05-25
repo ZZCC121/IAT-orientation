@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IAT 实验</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -46,7 +47,7 @@
     .instruction {
       padding: 30px;
       font-size: 1.2em;
-      margin-top: 28vh;
+      margin-top: 36vh;
     }
     .center-button {
       margin-top: 2em;
@@ -63,6 +64,9 @@
       .stimulus img {
         max-height: 50vh;
       }
+      .instruction {
+        margin-top: 34vh;
+      }
     }
     @media (orientation: portrait) {
       .stimulus {
@@ -70,6 +74,9 @@
       }
       .stimulus img {
         max-height: 30vh;
+      }
+      .instruction {
+        margin-top: 36vh;
       }
     }
   </style>
@@ -81,29 +88,26 @@
   </div>
   <div id="content"></div>
   <script>
+    let participantID = prompt("请输入您的参与者编号：");
     const stimuli = {
       positive: ["轻松", "愉快", "兴奋", "美妙", "愉悦", "满足", "舒服"],
       negative: ["恶心", "丑陋", "糟糕", "肮脏", "可怕", "厌恶", "危险"],
       smoking: ["images/smoking1.jpg", "images/smoking2.jpg", "images/smoking3.jpg", "images/smoking4.jpg", "images/smoking5.jpg", "images/smoking6.jpg", "images/smoking7.jpg", "images/smoking8.jpg"]
     };
-
     const phases = [
       {name: "练习1", count: 22, left: "积极/吸烟", right: "消极", leftCats: ["positive", "smoking"], rightCats: ["negative"]},
       {name: "测试1", count: 72, left: "积极/吸烟", right: "消极", leftCats: ["positive", "smoking"], rightCats: ["negative"]},
       {name: "练习2", count: 22, left: "积极", right: "消极/吸烟", leftCats: ["positive"], rightCats: ["negative", "smoking"]},
       {name: "测试2", count: 72, left: "积极", right: "消极/吸烟", leftCats: ["positive"], rightCats: ["negative", "smoking"]}
     ];
-
     let phaseIndex = 0;
     let currentStimuli = [];
     let trialIndex = 0;
     let trialData = [];
     let startTime = 0;
-
     const contentDiv = document.getElementById("content");
     const leftBtn = document.getElementById("left-btn");
     const rightBtn = document.getElementById("right-btn");
-
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -111,12 +115,10 @@
       }
       return arr;
     }
-
     function showInstruction(text, nextFn) {
       contentDiv.innerHTML = `<div class="instruction">${text.replace(/\n/g, '<br>')}<br><button class="center-button" id="nextBtn">继续</button></div>`;
       document.getElementById("nextBtn").onclick = nextFn;
     }
-
     function startPhase() {
       const phase = phases[phaseIndex];
       const baseItems = [...stimuli.positive, ...stimuli.negative, ...stimuli.smoking];
@@ -130,78 +132,54 @@
       rightBtn.textContent = phase.right;
       showNextStimulus();
     }
-
     function showNextStimulus() {
       if (trialIndex >= currentStimuli.length) {
         phaseIndex++;
         if (phaseIndex < phases.length) {
-          const nextInstruction = phaseIndex % 2 === 0 ?
-            `接下来，您将进入练习阶段，请按照以下要求进行分类：\n\n请按左上角的“${phases[phaseIndex].left}”将相应内容分类到左侧。\n请按右上角的“${phases[phaseIndex].right}”将相应内容分类到右侧。\n\n如果您已经准备好请按“继续”开始。` :
-            `接下来，您将进入正式测试阶段，请按照以下要求进行分类：\n\n请按左上角的“${phases[phaseIndex].left}”将相应内容分类到左侧。\n请按右上角的“${phases[phaseIndex].right}”将相应内容分类到右侧。\n\n如果您已经准备好请按“继续”开始。`;
-          showInstruction("该部分测试结束，请稍事休息。\n如果您已经准备好，请按“继续”进入下一部分测试。", () => showInstruction(nextInstruction, startPhase));
+          const nextInstruction = phaseIndex % 2 === 0 ? `接下来，您将进入练习阶段...` : `接下来，您将进入正式测试阶段...`;
+          showInstruction("该部分测试结束，请稍事休息。", () => showInstruction(nextInstruction, startPhase));
         } else {
-          contentDiv.innerHTML = `<div class="instruction">全部测试已完成，感谢您参加本次测试！<br><button class="center-button" onclick="downloadCSV()">退出并下载结果</button></div>`;
+          contentDiv.innerHTML = `<div class="instruction">全部测试已完成！<br><button class="center-button" onclick="downloadExcel()">下载结果</button></div>`;
         }
         return;
       }
       const stim = currentStimuli[trialIndex];
       const isImage = stim.includes("images/");
-      contentDiv.innerHTML = `<div class="stimulus">${isImage ? `<img src="${stim}" alt="图像">` : stim}</div><div id="fb" class="feedback"></div>`;
+      contentDiv.innerHTML = `<div class="stimulus">${isImage ? `<img src="${stim}" alt="">` : stim}</div><div id="fb" class="feedback"></div>`;
       startTime = performance.now();
     }
-
     function getStimulusCategory(stim) {
       if (stim.includes("images/")) return "smoking";
       if (stimuli.positive.includes(stim)) return "positive";
       if (stimuli.negative.includes(stim)) return "negative";
       return "unknown";
     }
-
     function handleResponse(key) {
       const stim = currentStimuli[trialIndex];
       const category = getStimulusCategory(stim);
       const phase = phases[phaseIndex];
       const correct = phase[key + "Cats"].includes(category);
       const rt = Math.round(performance.now() - startTime);
-
-      trialData.push({
-        phase: phase.name,
-        stimulus: stim,
-        key,
-        correct,
-        rt,
-        answer: category
-      });
-
+      trialData.push({id: participantID, phase: phase.name, stimulus: stim, key, correct, rt, category});
       const fb = document.getElementById("fb");
       if (!correct) {
         fb.textContent = "X";
-        setTimeout(() => {
-          trialIndex++;
-          showNextStimulus();
-        }, 1500);
+        setTimeout(() => { trialIndex++; showNextStimulus(); }, 1500);
       } else {
         trialIndex++;
         showNextStimulus();
       }
     }
-
-    function downloadCSV() {
-      let csv = "phase,stimulus,key,correct,rt,answer\n";
-      trialData.forEach(row => {
-        csv += `${row.phase},${row.stimulus},${row.key},${row.correct},${row.rt},${row.answer}\n`;
-      });
-      const blob = new Blob([csv], {type: 'text/csv'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'iat_results.csv';
-      a.click();
+    function downloadExcel() {
+      const ws = XLSX.utils.json_to_sheet(trialData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "IAT结果");
+      XLSX.writeFile(wb, `IAT_${participantID}.xlsx`);
     }
-
     leftBtn.addEventListener("click", () => handleResponse("left"));
     rightBtn.addEventListener("click", () => handleResponse("right"));
-
-    showInstruction(`感谢您参加本次实验！\n接下来，您将进入练习阶段，请按照以下要求进行分类：\n\n请按左上角的“积极/吸烟”将 “积极”词汇和“吸烟”图片 分类到左侧。\n请按右上角的“消极”将 “消极”词汇 分类到右侧。\n每次您看到一个词汇或图片时，请以最快的速度按下正确的键。\n如果按错了键，系统会显示红色的“X”。\n\n如果您已经准备好请按“继续”开始。`, startPhase);
+    showInstruction(`感谢参加IAT实验！`, startPhase);
   </script>
 </body>
 </html>
+
