@@ -83,32 +83,50 @@
       {name: "测试2", count: 72, left: "积极", right: "消极/吸烟", leftCats: ["positive"], rightCats: ["negative", "smoking"]}
     ];
     let phaseIndex = 0, currentStimuli = [], trialIndex = 0, trialData = [], startTime = 0;
-    
+
     function showInstruction(text, nextFn) {
       contentDiv.innerHTML = `<div class="instruction">${text.replace(/\n/g,'<br>')}<br><button class="center-button" id="nextBtn">继续</button></div>`;
       document.getElementById("nextBtn").onclick = nextFn;
     }
-    
+
     function startIntro() {
-      showInstruction('感谢您参加本次实验！<br>接下来请填写您的基本信息以继续实验。', showDemographicInput);
+      showInstruction('感谢您参加本次实验！\n接下来请点击继续填写基本信息。', showDemographicInput);
     }
-    
+
     function showDemographicInput() {
-      contentDiv.innerHTML = `<div class="instruction">请输入您的信息：<br>
-        <input id='idInput' placeholder='编号'><br>
-        <input id='nameInput' placeholder='姓名'><br>
-        <input id='genderInput' placeholder='性别'><br>
-        <input id='ageInput' placeholder='年龄'><br>
+      contentDiv.innerHTML = `<div class="instruction"><h3>请填写以下基本信息：</h3>
+        <p>编号：<input id='idInput' type='number' required></p>
+        <p>姓名：<input id='nameInput' type='text' required></p>
+        <p>年龄：<input id='ageInput' type='number' required></p>
+        <p>性别：<select id='genderInput' required>
+          <option value=''>请选择</option>
+          <option value='男'>男</option>
+          <option value='女'>女</option>
+          <option value='其他'>其他</option>
+        </select></p>
         <button class='center-button' onclick='saveInfo()'>提交</button></div>`;
     }
-    
+
     function saveInfo() {
       participantID = document.getElementById('idInput').value;
       demographicInfo = `姓名:${document.getElementById('nameInput').value}, 性别:${document.getElementById('genderInput').value}, 年龄:${document.getElementById('ageInput').value}`;
-      showInstruction('感谢填写，实验即将开始！', startPhase);
+      showPhaseInstruction(0);
     }
-    
-    function startPhase() {
+
+    function showPhaseInstruction(index) {
+      let text;
+      if (index === 0) {
+        text = '感谢您参加本次实验！<br>接下来，您将进入练习阶段，请按照以下要求进行分类：<br><br>请按左上角的“积极/吸烟”将 “积极”词汇和“吸烟”图片 分类到左侧。<br>请按右上角的“消极”将 “消极”词汇 分类到右侧。<br>每次您看到一个词汇或图片时，请以最快的速度按下正确的键。<br>如果按错了键，系统会显示红色的“X”。<br><br>如果您已经准备好请按“继续”开始。';
+      } else if (index === 1 || index === 3) {
+        text = '下面即将开始测试阶段，如果您需要休息，请休息5分钟后点击继续开始';
+      } else if (index === 2) {
+        text = '感谢您参加本次实验！<br>接下来，您将进入练习阶段，请按照以下要求进行分类：<br><br>请按左上角的“积极”将 “积极”词汇 分类到左侧。<br>请按右上角的“消极/吸烟”将 “消极”词汇 和 “吸烟”图片 分类到右侧。<br>每次您看到一个词汇或图片时，请以最快的速度按下正确的键。<br>如果按错了键，系统会显示红色的“X”。<br><br>如果您已经准备好请按“继续”开始。';
+      }
+      showInstruction(text, () => startPhase(index));
+    }
+
+    function startPhase(index) {
+      phaseIndex = index;
       const phase = phases[phaseIndex];
       let baseItems = [...stimuli.positive, ...stimuli.negative, ...stimuli.smoking];
       let repeated = [];
@@ -119,18 +137,17 @@
       rightBtn.textContent = phase.right;
       showNextStimulus();
     }
-    
+
     function shuffle(arr) {
       for (let i=arr.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
       return arr;
     }
-    
+
     function showNextStimulus() {
       if (trialIndex >= currentStimuli.length) {
         phaseIndex++;
         if (phaseIndex < phases.length) {
-          const nextInstruction = phaseIndex%2===0?`接下来，您将进入练习阶段...`:`接下来，您将进入正式测试阶段...`;
-          showInstruction('该部分测试结束，请稍事休息。',()=>showInstruction(nextInstruction,startPhase));
+          showPhaseInstruction(phaseIndex);
         } else {
           contentDiv.innerHTML = `<div class='instruction'>全部测试已完成！<br><button class='center-button' onclick='downloadExcel()'>下载结果</button></div>`;
         }
@@ -141,14 +158,14 @@
       contentDiv.innerHTML = `<div class='stimulus'>${isImage?`<img src='${stim}' alt=''>`:stim}</div><div id='fb' class='feedback'></div>`;
       startTime = performance.now();
     }
-    
+
     function getStimulusCategory(stim) {
       if (stim.includes("images/")) return "smoking";
       if (stimuli.positive.includes(stim)) return "positive";
       if (stimuli.negative.includes(stim)) return "negative";
       return "unknown";
     }
-    
+
     function handleResponse(key) {
       const stim=currentStimuli[trialIndex], category=getStimulusCategory(stim), phase=phases[phaseIndex];
       const correct=phase[key+"Cats"].includes(category), rt=Math.round(performance.now()-startTime);
@@ -157,20 +174,18 @@
       if (!correct) { fb.textContent="X"; setTimeout(()=>{trialIndex++;showNextStimulus();},1500); }
       else { trialIndex++; showNextStimulus(); }
     }
-    
+
     function downloadExcel() {
       const ws = XLSX.utils.json_to_sheet(trialData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "IAT结果");
       XLSX.writeFile(wb, `IAT_${participantID}.xlsx`);
     }
-    
+
     leftBtn.addEventListener("click",()=>handleResponse("left"));
     rightBtn.addEventListener("click",()=>handleResponse("right"));
-    
     startIntro();
   </script>
 </body>
 </html>
-
 
